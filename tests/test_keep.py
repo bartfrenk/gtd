@@ -31,8 +31,13 @@ class FakeKeep:
 def make_list_note(title, items):
     note = gkeepapi.node.List()
     note.title = title
+    # Assign explicit sort values in descending order to ensure deterministic ordering.
+    # List.sorted_items returns items ordered by sort value descending, so earlier items
+    # get higher sort values to preserve insertion order.
+    sort_value = 1000 + len(items) * 100
     for text, checked in items:
-        note.add(text, checked)
+        note.add(text, checked, sort=sort_value)
+        sort_value -= 100
     return note
 
 
@@ -49,8 +54,8 @@ def test_fetch_items_returns_checklist_items_of_matching_note():
     items = client.fetch_items()
 
     assert items == [
-        ChecklistItem(text="Eggs", checked=True),
         ChecklistItem(text="Milk", checked=False),
+        ChecklistItem(text="Eggs", checked=True),
     ]
     assert fake_keep.authenticated_with == ("user@example.com", "token123")
 
