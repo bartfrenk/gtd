@@ -1,0 +1,21 @@
+[project]
+name = "gtd"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "gkeepapi>=0.17.1",
+]
+
+["tool.black"]
+line-length = 99
+
+["tool.isort"]
+profile = "black"
+line-length = 99
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
