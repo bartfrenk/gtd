@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 
 import gkeepapi
@@ -10,7 +10,7 @@ import gkeepapi.node
 @dataclass
 class Credentials:
     email: str
-    master_token: str
+    master_token: str = field(repr=False)
 
 
 @dataclass

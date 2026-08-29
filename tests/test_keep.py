@@ -10,6 +10,13 @@ def test_credentials_holds_email_and_master_token():
     assert creds.master_token == "token123"
 
 
+def test_credentials_hides_master_token_from_repr():
+    creds = Credentials(email="user@example.com", master_token="secret-token-12345")
+    creds_repr = repr(creds)
+    assert "user@example.com" in creds_repr
+    assert "secret-token-12345" not in creds_repr
+
+
 def test_checklist_item_holds_text_and_checked():
     item = ChecklistItem(text="Buy milk", checked=True)
     assert item.text == "Buy milk"
