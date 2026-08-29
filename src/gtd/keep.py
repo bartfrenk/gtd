@@ -45,5 +45,11 @@ class KeepNoteClient:
 
     def _find_note(self, keep: gkeepapi.Keep) -> gkeepapi.node.List:
         matches = list(keep.find(func=lambda node: node.title == self._title))
+        if len(matches) == 0:
+            raise LookupError(f"No note found with title {self._title!r}")
+        if len(matches) > 1:
+            raise LookupError(f"Multiple notes found with title {self._title!r}")
         note = matches[0]
+        if not isinstance(note, gkeepapi.node.List):
+            raise TypeError(f"Note {self._title!r} is not a checklist note")
         return note
