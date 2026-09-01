@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Union
 
 import yaml
 from pydantic import BaseModel, Field
 
-from gtd import tasks
+from gtd import org, tasks
 
-InboxConfig = Annotated[tasks.Config, Field(discriminator="kind")]
+InboxConfig = Annotated[Union[tasks.Config, org.Config], Field(discriminator="kind")]
 
 
 class AppConfig(BaseModel):

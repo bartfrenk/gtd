@@ -423,6 +423,7 @@ source = { editable = "." }
 dependencies = [
     { name = "gkeepapi" },
     { name = "google-api-python-client" },
+    { name = "orgparse" },
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
@@ -439,6 +440,7 @@ dev = [
 requires-dist = [
     { name = "gkeepapi", specifier = ">=0.17.1" },
     { name = "google-api-python-client", specifier = ">=2.200.0" },
+    { name = "orgparse", specifier = ">=0.4.20251020" },
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "pyyaml", specifier = ">=6.0.3" },
 ]
@@ -558,6 +560,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/0b/5f/19930f824ffeb0ad4372da4812c50edbd1434f678c90c2733e1188edfc63/oauthlib-3.3.1.tar.gz", hash = "sha256:0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9", size = 185918, upload-time = "2025-06-19T22:48:08.269Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/be/9c/92789c596b8df838baa98fa71844d84283302f7604ed565dafe5a6b5041a/oauthlib-3.3.1-py3-none-any.whl", hash = "sha256:88119c938d2b8fb88561af5f6ee0eec8cc8d552b7bb1f712743136eb7523b7a1", size = 160065, upload-time = "2025-06-19T22:48:06.508Z" },
+]
+
+[[package]]
+name = "orgparse"
+version = "0.4.20251020"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e9/52/a27b9fd19fa3677f4f831d35e1c441769eefac3551f46dc988333661f53c/orgparse-0.4.20251020.tar.gz", hash = "sha256:64415d0f889c90612e5a55db7f350a6ee04a353573489562bb9c479ef4cd100c", size = 40735, upload-time = "2025-10-30T22:35:41.352Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/27/14/6c0076cc49e14e0071fb7707f4c4e97cc1c44efbcc59fad2b56aeda7ede4/orgparse-0.4.20251020-py3-none-any.whl", hash = "sha256:8738e422aaba1bc0567548a282be60a4a0f1c60bfd6a94c8c977f04fe5de904c", size = 34839, upload-time = "2025-10-30T22:35:40.49Z" },
 ]
 
 [[package]]

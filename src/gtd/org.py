@@ -1,0 +1,44 @@
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+from pathlib import Path
+from typing import Literal, Self, final, override
+
+import orgparse
+from orgparse.node import OrgNode
+from pydantic import BaseModel
+
+from gtd.core import Inbox, Item, Status
+
+
+class Config(BaseModel):
+    kind: Literal["org"] = "org"
+    path: Path
+
+
+@final
+class OrgInbox(Inbox):
+    def __init__(self, path: Path | str) -> None:
+        self._path = Path(path).expanduser()
+
+    @classmethod
+    def from_config(cls, config: Config) -> Self:
+        return cls(config.path)
+
+    @override
+    async def get_items(self, status: set[Status] | None = None) -> AsyncIterator[Item]:
+        for node in orgparse.load(self._path)[1:]:
+            if node.todo is None:
+                continue
+            item = self._to_item(node)
+            if status is None or item.status in status:
+                yield item
+
+    @staticmethod
+    def _to_item(node: OrgNode) -> Item:
+        todo = node.todo or "TODO"
+        return Item(
+            title=node.heading,
+            description=node.body.strip() or None,
+            status=Status.__members__.get(todo, Status.TODO),
+        )

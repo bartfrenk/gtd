@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "gkeepapi>=0.17.1",
     "google-api-python-client>=2.200.0",
+    "orgparse>=0.4.20251020",
     "pydantic>=2.13.5",
     "pyyaml>=6.0.3",
 ]
