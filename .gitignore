@@ -6,3 +6,4 @@ __pycache__/
 .worktrees/
 .superpowers/
 config.yaml
+.workmux.yaml
