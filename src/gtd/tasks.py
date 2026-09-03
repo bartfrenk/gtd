@@ -11,11 +11,16 @@ from pydantic import BaseModel
 
 from gtd.core import Inbox, Item, Status
 
-TASKS_SCOPES = ["https://www.googleapis.com/auth/tasks.readonly"]
+TASKS_SCOPES = ["https://www.googleapis.com/auth/tasks"]
 
 _STATUS_BY_TASK_STATUS = {
     "needsAction": Status.TODO,
     "completed": Status.DONE,
+}
+
+_TASK_STATUS_BY_STATUS = {
+    Status.TODO: "needsAction",
+    Status.DONE: "completed",
 }
 
 
@@ -64,8 +69,29 @@ class TasksInbox(Inbox):
             if status is None or item.status in status:
                 yield item
 
-    def _fetch_tasks(self) -> list[dict[str, Any]]:
+    @override
+    async def add(self, items: list[Item]) -> None:
         tasklist_id = self._find_tasklist_id()
+        for item in items:
+            task_status = _TASK_STATUS_BY_STATUS.get(item.status)  # type: ignore[arg-type]
+            if task_status is None:
+                raise ValueError(
+                    f"Cannot add an item with status {item.status!r} to a Tasks inbox; "
+                    f"only {sorted(s.value for s in _TASK_STATUS_BY_STATUS)} are supported"
+                )
+            body = {"title": item.title, "notes": item.description, "status": task_status}
+            self._service.tasks().insert(tasklist=tasklist_id, body=body).execute()
+
+    @override
+    async def clear(self) -> None:
+        tasklist_id = self._find_tasklist_id()
+        for task in self._list_tasks(tasklist_id):
+            self._service.tasks().delete(tasklist=tasklist_id, task=task["id"]).execute()
+
+    def _fetch_tasks(self) -> list[dict[str, Any]]:
+        return self._list_tasks(self._find_tasklist_id())
+
+    def _list_tasks(self, tasklist_id: str) -> list[dict[str, Any]]:
         response = (
             self._service.tasks()
             .list(tasklist=tasklist_id, showCompleted=True, showHidden=True)

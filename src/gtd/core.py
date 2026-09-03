@@ -24,3 +24,9 @@ class Inbox(ABC):
 
     @abstractmethod
     def get_items(self, status: set[Status] | None = None) -> AsyncIterator[Item]: ...
+
+    @abstractmethod
+    async def add(self, items: list[Item]) -> None: ...
+
+    @abstractmethod
+    async def clear(self) -> None: ...

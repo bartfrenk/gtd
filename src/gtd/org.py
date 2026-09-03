@@ -42,3 +42,21 @@ class OrgInbox(Inbox):
             description=node.body.strip() or None,
             status=Status.__members__.get(todo, Status.TODO),
         )
+
+    @override
+    async def add(self, items: list[Item]) -> None:
+        text = self._path.read_text() if self._path.exists() else ""
+        if text and not text.endswith("\n"):
+            text += "\n"
+        text += "\n".join(self._to_org(item) for item in items) + "\n"
+        self._path.write_text(text)
+
+    @staticmethod
+    def _to_org(item: Item) -> str:
+        status = item.status or Status.TODO
+        heading = f"* {status.value} {item.title}"
+        return f"{heading}\n{item.description}" if item.description else heading
+
+    @override
+    async def clear(self) -> None:
+        self._path.write_text("")
