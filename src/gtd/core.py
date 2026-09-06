@@ -20,6 +20,9 @@ class Item:
     status: Status | None = None
 
 
+OPEN_STATUSES = frozenset({Status.TODO, Status.URGENT, Status.NEXT, Status.WAITING})
+
+
 class Inbox(ABC):
 
     @abstractmethod
