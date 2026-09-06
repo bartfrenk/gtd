@@ -26,8 +26,11 @@ async def run_sync(ns: Namespace) -> None:
         await source.clear()
 
 
+DEFAULT_CONFIG_PATH = Path.home() / ".config/gtd/config.yaml"
+
+
 def set_sync_parser(parser: ArgumentParser) -> None:
-    parser.add_argument("--config", "-c", type=Path, required=True)
+    parser.add_argument("--config", "-c", type=Path, default=DEFAULT_CONFIG_PATH)
     parser.set_defaults(run=run_sync)
 
 
