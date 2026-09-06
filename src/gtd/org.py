@@ -60,3 +60,7 @@ class OrgInbox(Inbox):
     @override
     async def clear(self) -> None:
         self._path.write_text("")
+
+    @override
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}({self._path})"

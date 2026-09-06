@@ -1,7 +1,15 @@
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from enum import StrEnum
+
+log = logging.getLogger("gtd")
+
+
+def init_logging(debug: bool) -> None:
+    logging.basicConfig(level=logging.WARNING)
+    log.setLevel(logging.DEBUG if debug else logging.WARNING)
 
 
 class Status(StrEnum):

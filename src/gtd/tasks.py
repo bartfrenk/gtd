@@ -115,3 +115,7 @@ class TasksInbox(Inbox):
         if len(matches) > 1:
             raise LookupError(f"Multiple task lists found with title {self._title!r}")
         return matches[0]["id"]
+
+    @override
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}({self._title})"
