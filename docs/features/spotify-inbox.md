@@ -17,16 +17,22 @@ New `gtd.spotify.Config`, following `gtd.tasks.Config`:
 ```python
 class Config(BaseModel):
     kind: Literal["spotify"] = "spotify"
-    playlist: str          # playlist name, resolved like TasksInbox._find_tasklist_id
+    playlist_id: str        # Spotify playlist ID, used directly — no name lookup
     client_id: str
     client_secret: str
     refresh_token: str
 
     @classmethod
-    def from_env(cls, playlist: str) -> Self: ...  # CLIENT_ID / CLIENT_SECRET / REFRESH_TOKEN
+    def from_env(cls, playlist_id: str) -> Self: ...  # CLIENT_ID / CLIENT_SECRET / REFRESH_TOKEN
 
     def client(self) -> Any: ...  # builds an authenticated Spotify client
 ```
+
+Unlike `TasksInbox` (which resolves a tasklist by title), the Spotify inbox
+is configured with the playlist's ID directly, so there's no name-based
+lookup and no ambiguity/rename risk (this resolves open question #2 from an
+earlier draft of this plan). The ID is visible in a playlist's Spotify share
+link (`open.spotify.com/playlist/<id>`).
 
 Example `config.yaml` entry:
 
@@ -34,7 +40,7 @@ Example `config.yaml` entry:
 inbox:
   - config:
       kind: spotify
-      playlist: Inbox
+      playlist_id: 37i9dQZF1DXcBWIGoYBM5M
       client_id: ...
       client_secret: ...
       refresh_token: ...
@@ -92,20 +98,21 @@ and avoids adding a second one-off script for Spotify.
 
 ## `SpotifyInbox` (`src/gtd/spotify.py`)
 
-Mirrors `TasksInbox`:
+Mirrors `TasksInbox`, minus the name-lookup step since `playlist_id` is used
+directly:
 
-- `_find_playlist_id()` — page through
-  `client.current_user_playlists()`, match by `playlist.name == self._playlist`,
-  raise `LookupError` on zero or multiple matches (same contract as
-  `TasksInbox._find_tasklist_id`).
 - `get_items(status=None)` — page through
-  `client.playlist_items(playlist_id)`, map each track to:
-  - `title`: `f"{track['name']} — {', '.join(a['name'] for a in track['artists'])}"`
-  - `description`: `track['external_urls']['spotify']` (link back to the track)
+  `client.playlist_items(self._playlist_id)`. As of the Feb 2026 endpoint
+  rename, each entry nests the track under an `item` key (not `track`) —
+  e.g. `entry["item"]["name"]`, `entry["item"]["artists"]`. Map each entry's
+  `item` to:
+  - `title`: `f"{item['name']} — {', '.join(a['name'] for a in item['artists'])}"`
+  - `description`: `item['external_urls']['spotify']` (link back to the track)
   - `status`: `Status.TODO` (Spotify has no concept of task status — every
     track in the playlist counts as open)
-  Skip items whose track is `None` (removed/unavailable tracks) or that are
-  local files (no stable ID to act on later).
+  Skip entries whose `item` is `None` (removed/unavailable tracks) or whose
+  `is_local` is true (local files have no stable catalog identity to act on
+  later).
   Filter by `status` the same way the other inboxes do.
 - `add(items)` — **not supported**; raises `NotImplementedError`. This inbox
   is a source only: turning an arbitrary GTD `Item` into "a Spotify track"
@@ -115,7 +122,7 @@ Mirrors `TasksInbox`:
 - `clear()` — remove all currently-present tracks from the playlist (batch
   `client.playlist_remove_all_occurrences_of_items`, chunked to the API's
   100-items-per-request limit).
-- `__str__` — `f"SpotifyInbox({self._playlist})"`, matching the others.
+- `__str__` — `f"SpotifyInbox({self._playlist_id})"`, matching the others.
 
 ## Wiring
 
@@ -169,12 +176,13 @@ Sources: [Spotify Developer Terms](https://developer.spotify.com/terms),
    resolving items to tracks via search (ambiguous, needs a matching
    strategy) or appending them as literal unplayable placeholder entries
    (not really meaningful for Spotify).
-2. **Playlist identity** — resolving by name (like tasklists) means renames
-   silently break the config; consider allowing a playlist ID/URI instead of
-   or in addition to a name.
-3. **Pagination limits** — Spotify caps playlist item pages at 100; need to
+2. **Pagination limits** — Spotify caps playlist item pages at 100; need to
    loop on `next` like the existing paginated Google APIs already do
    implicitly via the client library.
-4. **Rate limiting** — spotipy raises on 429; decide whether `gtd sync`
+3. **Rate limiting** — spotipy raises on 429; decide whether `gtd sync`
    should retry/backoff or just surface the error like today's other
    inboxes do.
+
+Resolved: playlist identity now uses the playlist ID directly (see Config
+shape above) rather than resolving by name, so this is no longer an open
+question.

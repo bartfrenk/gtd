@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from gtd.core import Item
@@ -6,7 +8,7 @@ from gtd.spotify import Config, SpotifyInbox
 
 @pytest.mark.integration
 async def test_get_items_reads_real_playlist():
-    config = Config.from_env("Inbox")
+    config = Config.from_env(os.environ["PLAYLIST_ID"])
     inbox = SpotifyInbox.from_config(config)
 
     items = [item async for item in inbox.get_items()]
