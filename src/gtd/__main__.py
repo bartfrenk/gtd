@@ -1,8 +1,10 @@
 # pyright: reportUnusedCallResult = false
 import asyncio
 from argparse import SUPPRESS, ArgumentParser, Namespace
+from collections.abc import Callable
 from pathlib import Path
 
+from gtd import spotify, tasks
 from gtd.config import build_inbox, read_config
 from gtd.core import OPEN_STATUSES, init_logging, log
 
@@ -37,6 +39,21 @@ def set_sync_parser(parser: ArgumentParser) -> None:
     parser.set_defaults(run=run_sync)
 
 
+AUTH_FLOWS: dict[str, Callable[[], None]] = {
+    "tasks": tasks.authorize,
+    "spotify": spotify.authorize,
+}
+
+
+async def run_auth(ns: Namespace) -> None:
+    AUTH_FLOWS[ns.inbox]()  # pyright: ignore[reportAny]
+
+
+def set_auth_parser(parser: ArgumentParser) -> None:
+    parser.add_argument("inbox", choices=sorted(AUTH_FLOWS))
+    parser.set_defaults(run=run_auth)
+
+
 def create_parser() -> ArgumentParser:
     debug_parser = ArgumentParser(add_help=False)
     debug_parser.add_argument("--debug", action="store_true", default=SUPPRESS)
@@ -45,6 +62,7 @@ def create_parser() -> ArgumentParser:
 
     subparsers = parser.add_subparsers()
     set_sync_parser(subparsers.add_parser("sync", parents=[debug_parser]))
+    set_auth_parser(subparsers.add_parser("auth", parents=[debug_parser]))
     return parser
 
 

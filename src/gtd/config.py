@@ -6,12 +6,12 @@ from typing import Annotated
 import yaml
 from pydantic import BaseModel, Field
 
-from gtd import org, tasks
+from gtd import org, spotify, tasks
 from gtd.core import Inbox
 
 
 class InboxConfig(BaseModel):
-    config: Annotated[tasks.Config | org.Config, Field(discriminator="kind")]
+    config: Annotated[tasks.Config | org.Config | spotify.Config, Field(discriminator="kind")]
     destination: bool = False
 
 
@@ -27,9 +27,11 @@ def read_config(path: Path | str) -> AppConfig:
     return parse_config(Path(path).read_text())
 
 
-def build_inbox(config: tasks.Config | org.Config) -> Inbox:
+def build_inbox(config: tasks.Config | org.Config | spotify.Config) -> Inbox:
     match config:
         case tasks.Config():
             return tasks.TasksInbox.from_config(config)
         case org.Config():
             return org.OrgInbox.from_config(config)
+        case spotify.Config():
+            return spotify.SpotifyInbox.from_config(config)
