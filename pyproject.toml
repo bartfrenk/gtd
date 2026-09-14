@@ -44,3 +44,4 @@ asyncio_mode = "auto"
 reportMissingTypeStubs = false
 reportUnknownMemberType = false
 reportUnknownLambdaType = false
+reportImplicitStringConcatenation = false
