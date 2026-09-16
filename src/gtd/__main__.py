@@ -2,6 +2,7 @@
 import asyncio
 from argparse import SUPPRESS, ArgumentParser, Namespace
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 from gtd import spotify, tasks
@@ -21,7 +22,10 @@ async def run_sync(ns: Namespace) -> None:
     for inbox_config, source in inboxes:
         if inbox_config.destination:
             continue
-        items = [item async for item in source.get_items(status=set(OPEN_STATUSES))]
+        items = [
+            replace(item, source=inbox_config.config.kind)
+            async for item in source.get_items(status=set(OPEN_STATUSES))
+        ]
         if not items:
             log.info("No items in %s", source)
             continue

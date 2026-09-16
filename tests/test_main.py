@@ -65,6 +65,7 @@ async def test_run_sync_merges_open_items_and_clears_sources(monkeypatch):
     await run_sync(Namespace(config=Path("unused.yaml")))
 
     assert {item.title for item in destination.added} == {"a", "c"}
+    assert {item.source for item in destination.added} == {"org"}
     assert source1.cleared is True
     assert source2.cleared is True
     assert destination.cleared is False

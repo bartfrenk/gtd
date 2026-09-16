@@ -55,7 +55,11 @@ class OrgInbox(Inbox):
     def _to_org(item: Item) -> str:
         status = item.status or Status.TODO
         heading = f"* {status.value} {item.title}"
-        return f"{heading}\n{item.description}" if item.description else heading
+        body_parts = [f"Source: {item.source}"] if item.source else []
+        if item.description:
+            body_parts.append(item.description)
+        body = "\n\n".join(body_parts)
+        return f"{heading}\n{body}" if body else heading
 
     @override
     async def clear(self) -> None:
