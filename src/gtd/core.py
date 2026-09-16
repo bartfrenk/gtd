@@ -28,6 +28,7 @@ class Item:
     description: str | None = None
     status: Status | None = None
     available_at: datetime | None = None
+    source: str | None = None
 
 
 OPEN_STATUSES = frozenset({Status.TODO, Status.URGENT, Status.NEXT, Status.WAITING})
