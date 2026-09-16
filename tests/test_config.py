@@ -4,8 +4,8 @@ from gtd.config import AppConfig, InboxConfig, parse_config, read_config
 
 
 @pytest.mark.integration
-def test_read_config():
-    config = read_config("config.yaml")
+async def test_read_config():
+    config = await read_config("config.yaml")
     assert isinstance(config, AppConfig)
     assert config.inbox
     for inbox in config.inbox:
@@ -13,8 +13,8 @@ def test_read_config():
         assert isinstance(inbox.destination, bool)
 
 
-def test_destination_defaults_to_false():
-    config = parse_config(
+async def test_destination_defaults_to_false():
+    config = await parse_config(
         """
         inbox:
           - config:

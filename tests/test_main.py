@@ -43,7 +43,10 @@ def _setup(monkeypatch, inboxes: list[tuple[InboxConfig, FakeInbox]]) -> None:
     app_config = AppConfig(inbox=[inbox_config for inbox_config, _ in inboxes])
     by_id = {id(inbox_config.config): fake for inbox_config, fake in inboxes}
 
-    monkeypatch.setattr("gtd.__main__.read_config", lambda _: app_config)
+    async def fake_read_config(_) -> AppConfig:
+        return app_config
+
+    monkeypatch.setattr("gtd.__main__.read_config", fake_read_config)
     monkeypatch.setattr("gtd.__main__.build_inbox", lambda config: by_id[id(config)])
 
 

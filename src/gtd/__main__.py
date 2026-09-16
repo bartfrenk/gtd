@@ -10,7 +10,7 @@ from gtd.core import OPEN_STATUSES, init_logging, log
 
 
 async def run_sync(ns: Namespace) -> None:
-    config = read_config(ns.config)  # pyright: ignore[reportAny]
+    config = await read_config(ns.config)  # pyright: ignore[reportAny]
     inboxes = [(inbox_config, build_inbox(inbox_config.config)) for inbox_config in config.inbox]
 
     destinations = [inbox for inbox_config, inbox in inboxes if inbox_config.destination]

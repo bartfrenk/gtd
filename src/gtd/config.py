@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import io
 from pathlib import Path
 from typing import Annotated
 
-import yaml
+import yamlin
 from pydantic import BaseModel, Field
 
 from gtd import org, spotify, tasks
@@ -19,12 +20,12 @@ class AppConfig(BaseModel):
     inbox: list[InboxConfig]
 
 
-def parse_config(s: str) -> AppConfig:
-    return AppConfig.model_validate(yaml.safe_load(s))
+async def parse_config(s: str) -> AppConfig:
+    return AppConfig.model_validate(await yamlin.read_stream(io.StringIO(s)))
 
 
-def read_config(path: Path | str) -> AppConfig:
-    return parse_config(Path(path).read_text())
+async def read_config(path: Path | str) -> AppConfig:
+    return AppConfig.model_validate(await yamlin.read_file(Path(path)))
 
 
 def build_inbox(config: tasks.Config | org.Config | spotify.Config) -> Inbox:
