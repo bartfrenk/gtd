@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 from itertools import batched
 from typing import Any, Literal, Self, final, override
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from spotipy import Spotify
 from spotipy.cache_handler import MemoryCacheHandler
 from spotipy.oauth2 import SpotifyOauthError, SpotifyOAuth
@@ -31,7 +31,9 @@ class Config(BaseModel):
     playlist_id: str
     client_id: str
     client_secret: str
-    refresh_token: str
+
+    # Populated from the token cache after loading, never sourced from config.yaml.
+    refresh_token: str | None = Field(default=None, exclude=True)
 
     @classmethod
     def from_env(cls, playlist_id: str) -> Self:
@@ -43,10 +45,17 @@ class Config(BaseModel):
         )
 
     def client(self) -> Any:
+        if self.refresh_token is None:
+            raise RuntimeError(
+                f"No cached refresh token for client_id {self.client_id!r}; "
+                "run `gtd auth config` first"
+            )
         token_info = self._auth_manager().refresh_access_token(self.refresh_token)
         return Spotify(auth=token_info["access_token"])
 
     def is_valid(self) -> bool:
+        if self.refresh_token is None:
+            return False
         try:
             self._auth_manager().refresh_access_token(self.refresh_token)
         except SpotifyOauthError:

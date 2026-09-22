@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from gtd import org, spotify, tasks
 from gtd.core import Inbox
+from gtd.token_cache import TokenCache
 
 
 class InboxConfig(BaseModel):
@@ -25,7 +26,14 @@ async def parse_config(s: str) -> AppConfig:
 
 
 async def read_config(path: Path | str) -> AppConfig:
-    return AppConfig.model_validate(await yamlin.read_file(Path(path)))
+    path = Path(path)
+    config = AppConfig.model_validate(await yamlin.read_file(path))
+    cache = TokenCache.next_to_config(path)
+    for inbox_config in config.inbox:
+        inbox = inbox_config.config
+        if isinstance(inbox, (tasks.Config, spotify.Config)):
+            inbox.refresh_token = cache.get(inbox.client_id)
+    return config
 
 
 def build_inbox(config: tasks.Config | org.Config | spotify.Config) -> Inbox:

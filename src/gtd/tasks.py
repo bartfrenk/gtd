@@ -10,7 +10,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from gtd.core import Inbox, Item, Status
 
@@ -32,7 +32,9 @@ class Config(BaseModel):
     title: str
     client_id: str
     client_secret: str
-    refresh_token: str
+
+    # Populated from the token cache after loading, never sourced from config.yaml.
+    refresh_token: str | None = Field(default=None, exclude=True)
 
     @classmethod
     def from_env(cls, title: str) -> Self:
@@ -47,6 +49,8 @@ class Config(BaseModel):
         return build("tasks", "v1", credentials=self._credentials())
 
     def is_valid(self) -> bool:
+        if self.refresh_token is None:
+            return False
         try:
             self._credentials().refresh(Request())
         except RefreshError:
@@ -57,6 +61,11 @@ class Config(BaseModel):
         return _run_consent_flow(self.client_id, self.client_secret)
 
     def _credentials(self) -> Credentials:
+        if self.refresh_token is None:
+            raise RuntimeError(
+                f"No cached refresh token for client_id {self.client_id!r}; "
+                "run `gtd auth config` first"
+            )
         return Credentials(
             token=None,
             refresh_token=self.refresh_token,

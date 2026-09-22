@@ -7,6 +7,7 @@ from pathlib import Path
 from gtd import org, spotify, tasks
 from gtd.config import build_inbox, read_config
 from gtd.core import OPEN_STATUSES, init_logging, log
+from gtd.token_cache import TokenCache
 
 
 async def run_sync(ns: Namespace) -> None:
@@ -53,23 +54,27 @@ def set_auth_inbox_parser(parser: ArgumentParser, inbox: str) -> None:
     parser.set_defaults(run=run_auth, inbox=inbox)
 
 
-def _renew_if_invalid(label: str, config: tasks.Config | spotify.Config) -> None:
+def _renew_if_invalid(
+    label: str, config: tasks.Config | spotify.Config, cache: TokenCache
+) -> None:
     if config.is_valid():
         log.info("Refresh token for %s is still valid", label)
         return
     log.warning("Refresh token for %s is invalid or expired; reauthorizing", label)
-    print(f"{label}: {config.reauthorize()}")
+    cache.set(config.client_id, config.reauthorize())
+    print(f"{label}: refresh token renewed and cached")
 
 
 async def run_auth_config(ns: Namespace) -> None:
     config = await read_config(ns.config)  # pyright: ignore[reportAny]
+    cache = TokenCache.next_to_config(ns.config)  # pyright: ignore[reportAny]
     for inbox_config in config.inbox:
         inbox = inbox_config.config
         match inbox:
             case tasks.Config():
-                _renew_if_invalid(f"tasks:{inbox.title}", inbox)
+                _renew_if_invalid(f"tasks:{inbox.title}", inbox, cache)
             case spotify.Config():
-                _renew_if_invalid(f"spotify:{inbox.playlist_id}", inbox)
+                _renew_if_invalid(f"spotify:{inbox.playlist_id}", inbox, cache)
             case org.Config():
                 pass
 

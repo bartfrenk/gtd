@@ -117,7 +117,7 @@ def _setup_auth_config(monkeypatch, app_config: AppConfig) -> None:
     monkeypatch.setattr("gtd.__main__.read_config", fake_read_config)
 
 
-async def test_run_auth_config_skips_inboxes_with_valid_tokens(monkeypatch, capsys):
+async def test_run_auth_config_skips_inboxes_with_valid_tokens(monkeypatch, capsys, tmp_path):
     task_config = tasks.Config(
         title="Inbox", client_id="cid", client_secret="csec", refresh_token="good"
     )
@@ -130,12 +130,15 @@ async def test_run_auth_config_skips_inboxes_with_valid_tokens(monkeypatch, caps
 
     monkeypatch.setattr(tasks.Config, "reauthorize", fail_reauthorize)
 
-    await run_auth_config(Namespace(config=Path("unused.yaml")))
+    await run_auth_config(Namespace(config=tmp_path / "config.yaml"))
 
     assert capsys.readouterr().out == ""
+    assert not (tmp_path / "tokens").exists()
 
 
-async def test_run_auth_config_reauthorizes_and_prints_invalid_tokens(monkeypatch, capsys):
+async def test_run_auth_config_reauthorizes_and_caches_invalid_tokens(
+    monkeypatch, capsys, tmp_path
+):
     task_config = tasks.Config(
         title="Inbox", client_id="cid", client_secret="csec", refresh_token="dead"
     )
@@ -155,8 +158,12 @@ async def test_run_auth_config_reauthorizes_and_prints_invalid_tokens(monkeypatc
     monkeypatch.setattr(tasks.Config, "reauthorize", lambda self: "new-tasks-token")
     monkeypatch.setattr(spotify.Config, "reauthorize", lambda self: "new-spotify-token")
 
-    await run_auth_config(Namespace(config=Path("unused.yaml")))
+    await run_auth_config(Namespace(config=tmp_path / "config.yaml"))
 
     out = capsys.readouterr().out
-    assert "tasks:Inbox: new-tasks-token" in out
-    assert "spotify:pid: new-spotify-token" in out
+    assert "tasks:Inbox: refresh token renewed and cached" in out
+    assert "spotify:pid: refresh token renewed and cached" in out
+    assert "new-tasks-token" not in out
+    assert "new-spotify-token" not in out
+    assert (tmp_path / "tokens" / "cid").read_text() == "new-tasks-token"
+    assert (tmp_path / "tokens" / "cid2").read_text() == "new-spotify-token"

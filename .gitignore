@@ -6,5 +6,6 @@ __pycache__/
 .worktrees/
 .superpowers/
 config.yaml
+tokens/
 .workmux.yaml
 .workmux
