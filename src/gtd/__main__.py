@@ -4,7 +4,7 @@ from argparse import SUPPRESS, ArgumentParser, Namespace
 from collections.abc import Callable
 from pathlib import Path
 
-from gtd import spotify, tasks
+from gtd import org, spotify, tasks
 from gtd.config import build_inbox, read_config
 from gtd.core import OPEN_STATUSES, init_logging, log
 
@@ -49,9 +49,41 @@ async def run_auth(ns: Namespace) -> None:
     AUTH_FLOWS[ns.inbox]()  # pyright: ignore[reportAny]
 
 
-def set_auth_parser(parser: ArgumentParser) -> None:
-    parser.add_argument("inbox", choices=sorted(AUTH_FLOWS))
-    parser.set_defaults(run=run_auth)
+def set_auth_inbox_parser(parser: ArgumentParser, inbox: str) -> None:
+    parser.set_defaults(run=run_auth, inbox=inbox)
+
+
+def _renew_if_invalid(label: str, config: tasks.Config | spotify.Config) -> None:
+    if config.is_valid():
+        log.info("Refresh token for %s is still valid", label)
+        return
+    log.warning("Refresh token for %s is invalid or expired; reauthorizing", label)
+    print(f"{label}: {config.reauthorize()}")
+
+
+async def run_auth_config(ns: Namespace) -> None:
+    config = await read_config(ns.config)  # pyright: ignore[reportAny]
+    for inbox_config in config.inbox:
+        inbox = inbox_config.config
+        match inbox:
+            case tasks.Config():
+                _renew_if_invalid(f"tasks:{inbox.title}", inbox)
+            case spotify.Config():
+                _renew_if_invalid(f"spotify:{inbox.playlist_id}", inbox)
+            case org.Config():
+                pass
+
+
+def set_auth_config_parser(parser: ArgumentParser) -> None:
+    parser.add_argument("--config", "-c", type=Path, default=DEFAULT_CONFIG_PATH)
+    parser.set_defaults(run=run_auth_config)
+
+
+def set_auth_parser(parser: ArgumentParser, debug_parser: ArgumentParser) -> None:
+    subparsers = parser.add_subparsers(required=True)
+    for inbox in sorted(AUTH_FLOWS):
+        set_auth_inbox_parser(subparsers.add_parser(inbox, parents=[debug_parser]), inbox)
+    set_auth_config_parser(subparsers.add_parser("config", parents=[debug_parser]))
 
 
 def create_parser() -> ArgumentParser:
@@ -62,7 +94,7 @@ def create_parser() -> ArgumentParser:
 
     subparsers = parser.add_subparsers()
     set_sync_parser(subparsers.add_parser("sync", parents=[debug_parser]))
-    set_auth_parser(subparsers.add_parser("auth", parents=[debug_parser]))
+    set_auth_parser(subparsers.add_parser("auth", parents=[debug_parser]), debug_parser)
     return parser
 
 

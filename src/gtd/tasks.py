@@ -5,6 +5,8 @@ import os
 from collections.abc import AsyncIterator
 from typing import Any, Literal, Self, final, override
 
+from google.auth.exceptions import RefreshError
+from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -42,7 +44,20 @@ class Config(BaseModel):
         )
 
     def service(self) -> Any:
-        credentials = Credentials(
+        return build("tasks", "v1", credentials=self._credentials())
+
+    def is_valid(self) -> bool:
+        try:
+            self._credentials().refresh(Request())
+        except RefreshError:
+            return False
+        return True
+
+    def reauthorize(self) -> str:
+        return _run_consent_flow(self.client_id, self.client_secret)
+
+    def _credentials(self) -> Credentials:
+        return Credentials(
             token=None,
             refresh_token=self.refresh_token,
             client_id=self.client_id,
@@ -50,7 +65,6 @@ class Config(BaseModel):
             token_uri="https://oauth2.googleapis.com/token",
             scopes=TASKS_SCOPES,
         )
-        return build("tasks", "v1", credentials=credentials)
 
 
 @final
@@ -74,7 +88,7 @@ class TasksInbox(Inbox):
     async def add(self, items: list[Item]) -> None:
         tasklist_id = self._find_tasklist_id()
         for item in items:
-            task_status = _TASK_STATUS_BY_STATUS.get(item.status)  # type: ignore[arg-type]
+            task_status = _TASK_STATUS_BY_STATUS.get(item.status)
             if task_status is None:
                 raise ValueError(
                     f"Cannot add an item with status {item.status!r} to a Tasks inbox; "
@@ -125,6 +139,10 @@ class TasksInbox(Inbox):
 def authorize() -> None:
     client_id = input("Client ID: ")
     client_secret = input("Client secret: ")
+    print(_run_consent_flow(client_id, client_secret))
+
+
+def _run_consent_flow(client_id: str, client_secret: str) -> str:
     client_config = {
         "installed": {
             "client_id": client_id,
@@ -135,4 +153,5 @@ def authorize() -> None:
     }
     flow = InstalledAppFlow.from_client_config(client_config, TASKS_SCOPES)
     credentials = flow.run_local_server(port=0)
-    print(credentials.refresh_token)
+    assert credentials.refresh_token is not None
+    return credentials.refresh_token

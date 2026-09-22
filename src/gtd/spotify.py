@@ -9,7 +9,7 @@ from typing import Any, Literal, Self, final, override
 from pydantic import BaseModel
 from spotipy import Spotify
 from spotipy.cache_handler import MemoryCacheHandler
-from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyOauthError, SpotifyOAuth
 
 from gtd.core import Inbox, Item, Status
 
@@ -43,15 +43,27 @@ class Config(BaseModel):
         )
 
     def client(self) -> Any:
-        auth_manager = SpotifyOAuth(
+        token_info = self._auth_manager().refresh_access_token(self.refresh_token)
+        return Spotify(auth=token_info["access_token"])
+
+    def is_valid(self) -> bool:
+        try:
+            self._auth_manager().refresh_access_token(self.refresh_token)
+        except SpotifyOauthError:
+            return False
+        return True
+
+    def reauthorize(self) -> str:
+        return _run_consent_flow(self.client_id, self.client_secret)
+
+    def _auth_manager(self) -> SpotifyOAuth:
+        return SpotifyOAuth(
             client_id=self.client_id,
             client_secret=self.client_secret,
             redirect_uri=REDIRECT_URI,
             scope=SPOTIFY_SCOPES,
             cache_handler=MemoryCacheHandler(),
         )
-        token_info = auth_manager.refresh_access_token(self.refresh_token)
-        return Spotify(auth=token_info["access_token"])
 
 
 @final
@@ -115,6 +127,10 @@ class SpotifyInbox(Inbox):
 def authorize() -> None:
     client_id = input("Client ID: ")
     client_secret = input("Client secret: ")
+    print(_run_consent_flow(client_id, client_secret))
+
+
+def _run_consent_flow(client_id: str, client_secret: str) -> str:
     auth_manager = SpotifyOAuth(
         client_id=client_id,
         client_secret=client_secret,
@@ -126,4 +142,4 @@ def authorize() -> None:
     response = input("Enter the URL you were redirected to: ")
     code = auth_manager.parse_response_code(response)
     token_info = auth_manager.get_access_token(code, as_dict=True)
-    print(token_info["refresh_token"])  # pyright: ignore[reportUnknownArgumentType]
+    return token_info["refresh_token"]

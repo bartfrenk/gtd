@@ -7,8 +7,8 @@ from typing import final, override
 
 import pytest
 
-from gtd import org
-from gtd.__main__ import run_sync
+from gtd import org, spotify, tasks
+from gtd.__main__ import run_auth_config, run_sync
 from gtd.config import AppConfig, InboxConfig
 from gtd.core import Inbox, Item, Status
 
@@ -108,3 +108,55 @@ async def test_run_sync_raises_when_multiple_destinations(monkeypatch):
 
     with pytest.raises(ValueError, match="Expected exactly one destination inbox, found 2"):
         await run_sync(Namespace(config=Path("unused.yaml")))
+
+
+def _setup_auth_config(monkeypatch, app_config: AppConfig) -> None:
+    async def fake_read_config(_) -> AppConfig:
+        return app_config
+
+    monkeypatch.setattr("gtd.__main__.read_config", fake_read_config)
+
+
+async def test_run_auth_config_skips_inboxes_with_valid_tokens(monkeypatch, capsys):
+    task_config = tasks.Config(
+        title="Inbox", client_id="cid", client_secret="csec", refresh_token="good"
+    )
+    app_config = AppConfig(inbox=[InboxConfig(config=task_config)])
+    _setup_auth_config(monkeypatch, app_config)
+    monkeypatch.setattr(tasks.Config, "is_valid", lambda self: True)
+
+    def fail_reauthorize(self):
+        raise AssertionError("reauthorize should not be called for a valid token")
+
+    monkeypatch.setattr(tasks.Config, "reauthorize", fail_reauthorize)
+
+    await run_auth_config(Namespace(config=Path("unused.yaml")))
+
+    assert capsys.readouterr().out == ""
+
+
+async def test_run_auth_config_reauthorizes_and_prints_invalid_tokens(monkeypatch, capsys):
+    task_config = tasks.Config(
+        title="Inbox", client_id="cid", client_secret="csec", refresh_token="dead"
+    )
+    spotify_config = spotify.Config(
+        playlist_id="pid", client_id="cid2", client_secret="csec2", refresh_token="dead"
+    )
+    app_config = AppConfig(
+        inbox=[
+            InboxConfig(config=task_config),
+            InboxConfig(config=spotify_config),
+            InboxConfig(config=org.Config(path=Path("/tmp/unused.org"))),
+        ]
+    )
+    _setup_auth_config(monkeypatch, app_config)
+    monkeypatch.setattr(tasks.Config, "is_valid", lambda self: False)
+    monkeypatch.setattr(spotify.Config, "is_valid", lambda self: False)
+    monkeypatch.setattr(tasks.Config, "reauthorize", lambda self: "new-tasks-token")
+    monkeypatch.setattr(spotify.Config, "reauthorize", lambda self: "new-spotify-token")
+
+    await run_auth_config(Namespace(config=Path("unused.yaml")))
+
+    out = capsys.readouterr().out
+    assert "tasks:Inbox: new-tasks-token" in out
+    assert "spotify:pid: new-spotify-token" in out
