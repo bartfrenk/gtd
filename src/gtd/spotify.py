@@ -9,7 +9,7 @@ from typing import Any, Literal, Self, final, override
 from pydantic import BaseModel, Field
 from spotipy import Spotify
 from spotipy.cache_handler import MemoryCacheHandler
-from spotipy.oauth2 import SpotifyOauthError, SpotifyOAuth
+from spotipy.oauth2 import SpotifyOAuth, SpotifyOauthError
 
 from gtd.core import Inbox, Item, Status
 
@@ -121,9 +121,12 @@ class SpotifyInbox(Inbox):
 
     @staticmethod
     def _to_item(track: dict[str, Any]) -> Item:
-        artists = ", ".join(artist["name"] for artist in track["artists"])
+        artist_names = [artist["name"] for artist in track["artists"]]
+        title = track["name"]
+        if all(name is not None for name in artist_names):
+            title = f"{title} — {', '.join(artist_names)}"
         return Item(
-            title=f"{track['name']} — {artists}",
+            title=title,
             description=track["external_urls"]["spotify"],
             status=Status.TODO,
         )
