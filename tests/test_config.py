@@ -27,6 +27,19 @@ async def test_destination_defaults_to_false():
     assert config.inbox[0].config.kind == "org"
 
 
+async def test_remarkable_config_parses():
+    config = await parse_config(
+        """
+        inbox:
+          - config:
+              kind: remarkable
+              path: /Inbox
+              hash_cache_path: ~/.cache/gtd/remarkable-hash
+        """
+    )
+    assert config.inbox[0].config.kind == "remarkable"
+
+
 async def test_read_config_populates_refresh_token_from_cache(tmp_path):
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
@@ -55,7 +68,7 @@ async def test_unknown_inbox_kind_is_skipped_with_warning(caplog):
         """
         inbox:
           - config:
-              kind: remarkable
+              kind: no-such-kind
           - config:
               kind: org
               path: ~/inbox.org
@@ -63,7 +76,7 @@ async def test_unknown_inbox_kind_is_skipped_with_warning(caplog):
     )
     assert len(config.inbox) == 1
     assert config.inbox[0].config.kind == "org"
-    assert "remarkable" in caplog.text
+    assert "no-such-kind" in caplog.text
 
 
 async def test_read_config_leaves_refresh_token_none_when_uncached(tmp_path):
