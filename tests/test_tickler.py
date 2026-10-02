@@ -205,3 +205,21 @@ async def test_clear_keeps_indentation_of_first_body_line(tmp_path):
 
     assert path.read_text().endswith("\n [2026-10-02 Fri 19:22]\n")
 
+
+async def test_add_writes_scheduled_line_unindented(tmp_path):
+    path = tmp_path / "tickler.org"
+
+    available_at = datetime.combine(FUTURE, datetime.min.time())
+    item = Item(title="Later", status=Status.TODO, available_at=available_at)
+    await TicklerInbox(path).add([item])
+
+    assert path.read_text() == f"* TODO Later\nSCHEDULED: {_ts(FUTURE)}\n"
+
+
+async def test_clear_writes_scheduled_line_unindented(tmp_path):
+    path = tmp_path / "tickler.org"
+    _write(path, f"* NEXT Not due yet\n  SCHEDULED: {_ts(FUTURE)}\n")
+
+    await TicklerInbox(path).clear()
+
+    assert f"\nSCHEDULED: {_ts(FUTURE)}\n" in path.read_text()

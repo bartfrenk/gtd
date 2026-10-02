@@ -75,7 +75,7 @@ class TicklerInbox(Inbox):
         status = item.status or Status.TODO
         lines = [f"* {status.value} {item.title}"]
         if item.available_at is not None:
-            lines.append(f"  SCHEDULED: {_format_date(item.available_at.date())}")
+            lines.append(f"SCHEDULED: {_format_date(item.available_at.date())}")
         if item.description:
             lines.append(item.description)
         return "\n".join(lines)
@@ -136,7 +136,7 @@ def _render_node(node: OrgNode, scheduled: OrgDateScheduled | None) -> str:
         heading += "  :" + ":".join(sorted(tags)) + ":"
     lines = [heading]
     if scheduled is not None:
-        lines.append(f"  SCHEDULED: {scheduled}")
+        lines.append(f"SCHEDULED: {scheduled}")
     body = strip_blank_lines(node.body)
     if body:
         lines.append(body)
