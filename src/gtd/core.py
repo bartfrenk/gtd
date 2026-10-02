@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 
 log = logging.getLogger("gtd")
@@ -26,6 +27,7 @@ class Item:
     title: str
     description: str | None = None
     status: Status | None = None
+    available_at: datetime | None = None
 
 
 OPEN_STATUSES = frozenset({Status.TODO, Status.URGENT, Status.NEXT, Status.WAITING})
