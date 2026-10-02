@@ -7,13 +7,15 @@ from typing import Annotated
 import yamlin
 from pydantic import BaseModel, Field
 
-from gtd import org, spotify, tasks
+from gtd import org, spotify, tasks, tickler
 from gtd.core import Inbox
 from gtd.token_cache import TokenCache
 
 
 class InboxConfig(BaseModel):
-    config: Annotated[tasks.Config | org.Config | spotify.Config, Field(discriminator="kind")]
+    config: Annotated[
+        tasks.Config | org.Config | spotify.Config | tickler.Config, Field(discriminator="kind")
+    ]
     destination: bool = False
 
 
@@ -36,7 +38,7 @@ async def read_config(path: Path | str) -> AppConfig:
     return config
 
 
-def build_inbox(config: tasks.Config | org.Config | spotify.Config) -> Inbox:
+def build_inbox(config: tasks.Config | org.Config | spotify.Config | tickler.Config) -> Inbox:
     match config:
         case tasks.Config():
             return tasks.TasksInbox.from_config(config)
@@ -44,3 +46,5 @@ def build_inbox(config: tasks.Config | org.Config | spotify.Config) -> Inbox:
             return org.OrgInbox.from_config(config)
         case spotify.Config():
             return spotify.SpotifyInbox.from_config(config)
+        case tickler.Config():
+            return tickler.TicklerInbox.from_config(config)
