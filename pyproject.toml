@@ -50,4 +50,4 @@ reportUnknownLambdaType = false
 reportImplicitStringConcatenation = false
 
 [tool.uv.sources]
-remarkable = { path = "/home/bart/code/projects/remarkable", editable = true }
+remarkable = { git = "https://github.com/bartfrenk/remarkable", rev = "v0.1.0" }

@@ -673,7 +673,7 @@ requires-dist = [
     { name = "orgparse", specifier = ">=0.4.20251020" },
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "pymupdf", specifier = ">=1.28.2" },
-    { name = "remarkable", editable = "../../../remarkable" },
+    { name = "remarkable", git = "https://github.com/bartfrenk/remarkable?rev=v0.1.0" },
     { name = "spotipy", specifier = ">=2.26.0" },
     { name = "yamlin", specifier = ">=0.6.0" },
 ]
@@ -1583,27 +1583,10 @@ wheels = [
 [[package]]
 name = "remarkable"
 version = "0.1.0"
-source = { editable = "../../../remarkable" }
+source = { git = "https://github.com/bartfrenk/remarkable?rev=v0.1.0#612d23840cbe5472b149f5cb7e8bf75e8215c7b4" }
 dependencies = [
     { name = "aiohttp" },
     { name = "pydantic" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiohttp", specifier = ">=3.13.5" },
-    { name = "pydantic", specifier = ">=2.13.4" },
-]
-
-[package.metadata.requires-dev]
-lint = [
-    { name = "basedpyright", specifier = ">=1.31.0" },
-    { name = "black", specifier = ">=24.2.0" },
-    { name = "isort", specifier = ">=5.6.4" },
-]
-test = [
-    { name = "pytest", specifier = ">=7.0" },
-    { name = "pytest-asyncio", specifier = ">=1.2.0" },
 ]
 
 [[package]]
