@@ -132,27 +132,73 @@ This keeps the blast radius to "one new module + one new config entry,"
 mirrors how `spotify.py` was added (see `docs/features/spotify-inbox.md`),
 and doesn't touch `run_sync`, `tasks.py`, or `org.py`.
 
-## Open questions to settle before implementing
+## Resolved design decisions
 
-- **Recurrence on promotion.** If a tickler item has a repeater
-  (`SCHEDULED: <2026-10-15 Thu +1w>`), should promoting it to the inbox also
-  reschedule it in `tickler.org` for the next occurrence (like Emacs does
-  when you mark a repeating TODO done), or should recurrence just not be
-  supported initially and only one-off dates ship first? `orgparse` parses
-  the repeater (`prefix, n, unit`) but doesn't advance dates itself — that
-  logic would need to be written from scratch.
-- **Write-side guardrail.** The ticket requires it *not* be possible to move
-  an item to the tickler without setting a date. Since items land in
-  `tickler.org` by hand-editing during Clarify (there's no `gtd` command that
-  writes to it), is the guardrail just documentation/convention, or should
-  `TicklerInbox.add()` reject items with `available_at is None` to make
-  misuse fail loudly if something ever does call it programmatically?
-- **Time of day.** `available_at <= now` comparison needs a decision on
-  timezone handling (org dates are naive) — probably compare at date
-  granularity (local date, not datetime) to match how org-mode itself treats
-  `SCHEDULED` as a day, not a timestamp.
+### Recurrence on promotion: reschedule, don't just delete
+
+If a promoted item had a repeater (`SCHEDULED: <2026-10-15 Thu +1w>`),
+`TicklerInbox.clear()` advances its `SCHEDULED` date in `tickler.org` instead
+of dropping it — the item is copied to the destination inbox *and* kept in
+the tickler for its next occurrence, mirroring what Emacs does when you mark
+a repeating TODO `DONE`. Only non-repeating items are removed outright once
+promoted. Approximate algorithm per repeater prefix (`n`, `unit` from
+`orgparse`'s parsed repeater; `today` = promotion date):
+
+- `+n<unit>` (cumulative): advance from the *original* scheduled date in
+  steps of `n<unit>` until the result is after `today` — keeps the series
+  anchored to its original date (e.g. always-the-15th), not to whenever it
+  happened to be promoted.
+- `++n<unit>` (catch-up): same computation as `+`; org's catch-up vs.
+  cumulative distinction is about equidistant missed cycles, which doesn't
+  matter at the precision this feature needs.
+- `.+n<unit>` (from-today): anchor resets to `today + n<unit>`, regardless of
+  the original date.
+
+### Write-side guardrail: an Emacs refile hook, not app-side validation
+
+Items land in `tickler.org` by refiling a headline during Clarify (`C-c C-w`
+in the org files registered in `org-refile-targets`), not through any `gtd`
+command — so the guardrail belongs where the refile happens, in the user's
+Doom config (`~/.config/doom/modules/local/gtd/config.el`), not in this
+repo's Python code. `org-refile-target-verify-function` isn't the right hook
+for this — it filters candidate *destination* headings, not the entry being
+moved. The correct hook is `org-after-refile-insert-hook`, which runs with
+point on the newly-inserted entry, in the destination buffer, after the copy
+but before the source subtree is deleted: if the destination file is
+`tickler.org` and the inserted entry has no `SCHEDULED` property, delete the
+just-inserted copy and signal `user-error` — this aborts `org-refile` before
+it deletes the original, so the refile as a whole is a no-op other than the
+error message. Sketch:
+
+```elisp
+(defun gtd--tickler-file-p (file)
+  (file-equal-p file (gtd--path "tickler.org")))
+
+(defun gtd--reject-undated-tickler-refile ()
+  (when (gtd--tickler-file-p (buffer-file-name))
+    (unless (org-entry-get nil "SCHEDULED")
+      (let ((beg (point)) (end (org-end-of-subtree t t)))
+        (delete-region beg end)
+        (user-error "Refusing to refile into tickler.org without a SCHEDULED date")))))
+
+(add-hook 'org-after-refile-insert-hook #'gtd--reject-undated-tickler-refile)
+```
+
+This also needs `tickler.org` added to `org-refile-targets` in
+`gtd--register-files` so it's a refile destination at all.
+
+### Time-of-day: compare at date granularity
+
+`available_at <= now` is really `available_at.date() <= date.today()` — org
+`SCHEDULED` values are calendar days, not timestamps, so a tickler item
+dated today should be promoted on first sync that day regardless of time of
+day (no timezone-aware datetime math needed).
 
 ## Suggested next step
 
-File a separate implementation ticket once an option/open-questions are
-confirmed with the user — this ticket is the plan, not the build.
+File a separate implementation ticket covering: `Item.available_at`,
+`gtd/tickler.py` (`Config`, `TicklerInbox.get_items`/`clear()` with the
+reschedule-on-repeat logic above, date-granularity comparison), the
+`InboxConfig`/`build_inbox` wiring, and — as a companion change in the
+`~/.config/doom` repo, not this one — the `org-after-refile-insert-hook`
+guardrail and the `tickler.org` refile target.
