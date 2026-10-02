@@ -186,3 +186,22 @@ async def test_clear_reschedules_due_item_with_from_today_repeater(tmp_path):
 def test_str_includes_path():
     inbox = TicklerInbox("/tmp/tickler.org")
     assert str(inbox) == "TicklerInbox(/tmp/tickler.org)"
+
+
+async def test_get_items_keeps_indentation_of_first_body_line(tmp_path):
+    path = tmp_path / "tickler.org"
+    _write(path, f"* TODO Check reply\n  SCHEDULED: {_ts(TODAY)}\n [2026-10-02 Fri 19:22]\n")
+
+    items = [item async for item in TicklerInbox(path).get_items()]
+
+    assert items[0].description == " [2026-10-02 Fri 19:22]"
+
+
+async def test_clear_keeps_indentation_of_first_body_line(tmp_path):
+    path = tmp_path / "tickler.org"
+    _write(path, f"* NEXT Not due yet\n  SCHEDULED: {_ts(FUTURE)}\n [2026-10-02 Fri 19:22]\n")
+
+    await TicklerInbox(path).clear()
+
+    assert path.read_text().endswith("\n [2026-10-02 Fri 19:22]\n")
+

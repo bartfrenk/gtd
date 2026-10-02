@@ -15,7 +15,7 @@ from orgparse.date import OrgDateScheduled
 from orgparse.node import OrgNode
 from pydantic import BaseModel
 
-from gtd.core import Inbox, Item, Status
+from gtd.core import Inbox, Item, Status, strip_blank_lines
 
 
 class Config(BaseModel):
@@ -57,7 +57,7 @@ class TicklerInbox(Inbox):
         scheduled = node.scheduled.start
         return Item(
             title=node.heading,
-            description=node.body.strip() or None,
+            description=strip_blank_lines(node.body) or None,
             status=Status.__members__.get(todo, Status.TODO),
             available_at=_as_datetime(scheduled) if scheduled is not None else None,
         )
@@ -137,7 +137,7 @@ def _render_node(node: OrgNode, scheduled: OrgDateScheduled | None) -> str:
     lines = [heading]
     if scheduled is not None:
         lines.append(f"  SCHEDULED: {scheduled}")
-    body = node.body.strip()
+    body = strip_blank_lines(node.body)
     if body:
         lines.append(body)
     return "\n".join(lines)

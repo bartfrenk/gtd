@@ -8,7 +8,7 @@ import orgparse
 from orgparse.node import OrgNode
 from pydantic import BaseModel
 
-from gtd.core import Inbox, Item, Status
+from gtd.core import Inbox, Item, Status, strip_blank_lines
 
 
 class Config(BaseModel):
@@ -39,7 +39,7 @@ class OrgInbox(Inbox):
         todo = node.todo or "TODO"
         return Item(
             title=node.heading,
-            description=node.body.strip() or None,
+            description=strip_blank_lines(node.body) or None,
             status=Status.__members__.get(todo, Status.TODO),
         )
 

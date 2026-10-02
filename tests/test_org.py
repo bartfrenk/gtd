@@ -31,3 +31,12 @@ async def test_add_omits_source_line_when_absent(tmp_path):
     await inbox.add([Item(title="a", status=Status.TODO)])
 
     assert path.read_text() == "* TODO a\n"
+
+
+async def test_get_items_keeps_indentation_of_first_body_line(tmp_path):
+    path = tmp_path / "inbox.org"
+    path.write_text("* TODO a\n [2026-10-02 Fri 19:22]\n\n")
+
+    items = [item async for item in org.OrgInbox(path).get_items()]
+
+    assert items[0].description == " [2026-10-02 Fri 19:22]"

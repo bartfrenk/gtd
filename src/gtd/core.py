@@ -31,6 +31,20 @@ class Item:
     source: str | None = None
 
 
+def strip_blank_lines(text: str) -> str:
+    """Drop leading and trailing blank lines, keeping each line's indentation.
+
+    Unlike `str.strip()`, this leaves the first line's leading whitespace alone, so
+    an org body such as ` [2026-10-02 Fri 19:22]` keeps its indentation.
+    """
+    lines = text.splitlines()
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return "\n".join(line.rstrip() for line in lines)
+
+
 OPEN_STATUSES = frozenset({Status.TODO, Status.URGENT, Status.NEXT, Status.WAITING})
 
 
