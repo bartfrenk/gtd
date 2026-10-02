@@ -104,7 +104,7 @@ class RemarkableInbox(Inbox):
     def from_config(cls, config: Config) -> Self:
         return cls(
             config.path,
-            RemarkableClient(credentials_path=config.credentials_path),
+            RemarkableClient(credentials_path=config.credentials_path.expanduser()),
             HashCache(config.hash_cache_path),
             ClaudeVisionOCR(config.model, config.anthropic_api_key),
         )

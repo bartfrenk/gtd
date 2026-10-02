@@ -8,8 +8,8 @@ from typing import final
 class HashCache:
     """A single file holding the last-seen content hash of one remote document."""
 
-    def __init__(self, path: Path) -> None:
-        self._path = path
+    def __init__(self, path: Path | str) -> None:
+        self._path = Path(path).expanduser()
 
     def get(self) -> str | None:
         return self._path.read_text().strip() if self._path.exists() else None
