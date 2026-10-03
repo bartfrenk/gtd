@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import tempfile
 from base64 import standard_b64encode
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from typing import Any, Literal, Protocol, Self, final, override
 
@@ -94,32 +94,42 @@ class ClaudeVisionOCR:
 
 @final
 class RemarkableInbox(Inbox):
-    def __init__(self, path: str, client: Any, hash_cache: HashCache, ocr: OCREngine) -> None:
+    """`client_factory` builds a fresh client per call rather than holding one
+    open for the Inbox's lifetime, so each `async with` closes its own
+    `aiohttp` session -- otherwise the session leaks until the process exits,
+    which aiohttp flags with an "Unclosed client session" warning.
+    """
+
+    def __init__(
+        self, path: str, client_factory: Callable[[], Any], hash_cache: HashCache, ocr: OCREngine
+    ) -> None:
         self._path = path
-        self._client = client
+        self._client_factory = client_factory
         self._hash_cache = hash_cache
         self._ocr = ocr
 
     @classmethod
     def from_config(cls, config: Config) -> Self:
+        credentials_path = config.credentials_path.expanduser()
         return cls(
             config.path,
-            RemarkableClient(credentials_path=config.credentials_path.expanduser()),
+            lambda: RemarkableClient(credentials_path=credentials_path),
             HashCache(config.hash_cache_path),
             ClaudeVisionOCR(config.model, config.anthropic_api_key),
         )
 
     @override
     async def get_items(self, status: set[Status] | None = None) -> AsyncIterator[Item]:
-        entries = await self._client.list_documents()
-        entry = resolve_path(entries, self._path)
-        if entry.hash == self._hash_cache.get():
-            return
+        async with self._client_factory() as client:
+            entries = await client.list_documents()
+            entry = resolve_path(entries, self._path)
+            if entry.hash == self._hash_cache.get():
+                return
 
-        with tempfile.TemporaryDirectory() as tmp:
-            dest = Path(tmp) / "inbox.pdf"
-            _ = await self._client.download_pdf(self._path, dest)
-            pdf_bytes = dest.read_bytes()
+            with tempfile.TemporaryDirectory() as tmp:
+                dest = Path(tmp) / "inbox.pdf"
+                _ = await client.download_pdf(self._path, dest)
+                pdf_bytes = dest.read_bytes()
 
         items = [item for page in _render_pages(pdf_bytes) for item in self._ocr.recognize(page)]
         if not items:
@@ -158,9 +168,10 @@ class RemarkableInbox(Inbox):
         with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
             _ = tmp.write(_blank_page_pdf())
             tmp.flush()
-            _ = await self._client.replace_pdf(tmp.name, name=name, folder=folder)
-        entries = await self._client.list_documents()
-        entry = resolve_path(entries, self._path)
+            async with self._client_factory() as client:
+                _ = await client.replace_pdf(tmp.name, name=name, folder=folder)
+                entries = await client.list_documents()
+                entry = resolve_path(entries, self._path)
         self._hash_cache.set(entry.hash)
 
     @override
@@ -190,6 +201,10 @@ def _split_tablet_path(path: str) -> tuple[str, str | None]:
 
 def _parse_json_string_array(text: str) -> list[str]:
     text = text.strip()
+    if not text:
+        # The model sometimes returns an empty response instead of the
+        # instructed "[]" for a page with no legible content.
+        return []
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else text
         text = text.rsplit("```", 1)[0]

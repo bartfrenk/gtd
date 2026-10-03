@@ -5,7 +5,12 @@ from remarkable.client import DocumentEntry
 
 from gtd.core import Item, Status
 from gtd.hash_cache import HashCache
-from gtd.remarkable import RemarkableInbox, _blank_page_pdf, _split_tablet_path
+from gtd.remarkable import (
+    RemarkableInbox,
+    _blank_page_pdf,
+    _parse_json_string_array,
+    _split_tablet_path,
+)
 
 
 def _entry(hash_: str, visible_name: str = "Inbox", parent: str = "") -> DocumentEntry:
@@ -39,6 +44,12 @@ class _FakeClient:
     async def replace_pdf(self, path: str, name: str | None = None, folder: str | None = None):
         self.replace_calls.append((Path(path).read_bytes(), name, folder))
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc_info: object) -> None:
+        pass
+
 
 @final
 class _FakeOCR:
@@ -56,7 +67,7 @@ async def test_get_items_skips_download_when_hash_unchanged(tmp_path):
     hash_cache = HashCache(tmp_path / "hash")
     hash_cache.set("abc")
     client = _FakeClient([_entry("abc")])
-    inbox = RemarkableInbox("/Inbox", client, hash_cache, _FakeOCR([]))
+    inbox = RemarkableInbox("/Inbox", lambda: client, hash_cache, _FakeOCR([]))
 
     items = [item async for item in inbox.get_items()]
 
@@ -69,7 +80,7 @@ async def test_get_items_downloads_and_ocrs_when_hash_changed(tmp_path):
     hash_cache.set("old")
     client = _FakeClient([_entry("new")], pdf_bytes=_blank_page_pdf())
     ocr = _FakeOCR([[Item(title="Buy milk", status=Status.TODO)]])
-    inbox = RemarkableInbox("/Inbox", client, hash_cache, ocr)
+    inbox = RemarkableInbox("/Inbox", lambda: client, hash_cache, ocr)
 
     items = [item async for item in inbox.get_items()]
 
@@ -88,7 +99,7 @@ async def test_get_items_does_not_persist_hash_when_items_are_found(tmp_path):
     hash_cache.set("old")
     client = _FakeClient([_entry("new")], pdf_bytes=_blank_page_pdf())
     ocr = _FakeOCR([[Item(title="Buy milk", status=Status.TODO)]])
-    inbox = RemarkableInbox("/Inbox", client, hash_cache, ocr)
+    inbox = RemarkableInbox("/Inbox", lambda: client, hash_cache, ocr)
 
     _ = [item async for item in inbox.get_items()]
 
@@ -99,7 +110,7 @@ async def test_get_items_persists_hash_immediately_when_no_items_found(tmp_path)
     hash_cache = HashCache(tmp_path / "hash")
     hash_cache.set("old")
     client = _FakeClient([_entry("new")], pdf_bytes=_blank_page_pdf())
-    inbox = RemarkableInbox("/Inbox", client, hash_cache, _FakeOCR([[]]))
+    inbox = RemarkableInbox("/Inbox", lambda: client, hash_cache, _FakeOCR([[]]))
 
     items = [item async for item in inbox.get_items()]
 
@@ -111,7 +122,7 @@ async def test_get_items_filters_by_status(tmp_path):
     hash_cache = HashCache(tmp_path / "hash")
     client = _FakeClient([_entry("new")], pdf_bytes=_blank_page_pdf())
     ocr = _FakeOCR([[Item(title="A", status=Status.TODO), Item(title="B", status=Status.DONE)]])
-    inbox = RemarkableInbox("/Inbox", client, hash_cache, ocr)
+    inbox = RemarkableInbox("/Inbox", lambda: client, hash_cache, ocr)
 
     items = [item async for item in inbox.get_items(status={Status.TODO})]
 
@@ -122,7 +133,7 @@ async def test_get_items_merges_items_across_pages(tmp_path):
     hash_cache = HashCache(tmp_path / "hash")
     client = _FakeClient([_entry("new")], pdf_bytes=_blank_page_pdf())
     ocr = _FakeOCR([[Item(title="A", status=Status.TODO)]])
-    inbox = RemarkableInbox("/Inbox", client, hash_cache, ocr)
+    inbox = RemarkableInbox("/Inbox", lambda: client, hash_cache, ocr)
 
     items = [item async for item in inbox.get_items()]
 
@@ -137,7 +148,7 @@ async def test_clear_replaces_with_blank_page_split_from_path(tmp_path):
             _entry("after-clear", visible_name="Inbox", parent="folder-id"),
         ]
     )
-    inbox = RemarkableInbox("/GTD/Inbox", client, hash_cache, _FakeOCR([]))
+    inbox = RemarkableInbox("/GTD/Inbox", lambda: client, hash_cache, _FakeOCR([]))
 
     await inbox.clear()
 
@@ -150,7 +161,7 @@ async def test_clear_replaces_with_blank_page_split_from_path(tmp_path):
 async def test_clear_at_root_passes_no_folder(tmp_path):
     hash_cache = HashCache(tmp_path / "hash")
     client = _FakeClient([_entry("after-clear")])
-    inbox = RemarkableInbox("/Inbox", client, hash_cache, _FakeOCR([]))
+    inbox = RemarkableInbox("/Inbox", lambda: client, hash_cache, _FakeOCR([]))
 
     await inbox.clear()
 
@@ -163,7 +174,7 @@ async def test_clear_persists_the_post_clear_hash(tmp_path):
     hash_cache = HashCache(tmp_path / "hash")
     hash_cache.set("before-clear")
     client = _FakeClient([_entry("after-clear")])
-    inbox = RemarkableInbox("/Inbox", client, hash_cache, _FakeOCR([]))
+    inbox = RemarkableInbox("/Inbox", lambda: client, hash_cache, _FakeOCR([]))
 
     await inbox.clear()
 
@@ -176,3 +187,12 @@ def test_split_tablet_path_root_level():
 
 def test_split_tablet_path_nested():
     assert _split_tablet_path("/GTD/Inbox") == ("Inbox", "GTD")
+
+
+def test_parse_json_string_array_treats_empty_response_as_no_items():
+    assert _parse_json_string_array("") == []
+    assert _parse_json_string_array("   ") == []
+
+
+def test_parse_json_string_array_strips_markdown_fence():
+    assert _parse_json_string_array('```json\n["A", "B"]\n```') == ["A", "B"]
