@@ -7,19 +7,20 @@ from typing import Annotated, cast
 import yamlin
 from pydantic import BaseModel, Field, model_validator
 
-from gtd import org, spotify, tasks, tickler
+from gtd import org, remarkable, spotify, tasks, tickler
 from gtd.core import Inbox, log
 from gtd.token_cache import TokenCache
 
 _KNOWN_KINDS = {
     cast(str, cls.model_fields["kind"].default)
-    for cls in (tasks.Config, org.Config, spotify.Config, tickler.Config)
+    for cls in (tasks.Config, org.Config, spotify.Config, tickler.Config, remarkable.Config)
 }
 
 
 class InboxConfig(BaseModel):
     config: Annotated[
-        tasks.Config | org.Config | spotify.Config | tickler.Config, Field(discriminator="kind")
+        tasks.Config | org.Config | spotify.Config | tickler.Config | remarkable.Config,
+        Field(discriminator="kind"),
     ]
     destination: bool = False
 
@@ -71,7 +72,9 @@ async def read_config(path: Path | str) -> AppConfig:
     return config
 
 
-def build_inbox(config: tasks.Config | org.Config | spotify.Config | tickler.Config) -> Inbox:
+def build_inbox(
+    config: tasks.Config | org.Config | spotify.Config | tickler.Config | remarkable.Config,
+) -> Inbox:
     match config:
         case tasks.Config():
             return tasks.TasksInbox.from_config(config)
@@ -81,3 +84,5 @@ def build_inbox(config: tasks.Config | org.Config | spotify.Config | tickler.Con
             return spotify.SpotifyInbox.from_config(config)
         case tickler.Config():
             return tickler.TicklerInbox.from_config(config)
+        case remarkable.Config():
+            return remarkable.RemarkableInbox.from_config(config)

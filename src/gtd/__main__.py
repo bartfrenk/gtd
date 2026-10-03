@@ -5,7 +5,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
-from gtd import org, spotify, tasks, tickler
+from gtd import org, remarkable, spotify, tasks, tickler
 from gtd.config import build_inbox, read_config
 from gtd.core import OPEN_STATUSES, init_logging, log
 from gtd.token_cache import TokenCache
@@ -82,6 +82,8 @@ async def run_auth_config(ns: Namespace) -> None:
             case org.Config():
                 pass
             case tickler.Config():
+                pass
+            case remarkable.Config():
                 pass
 
 
