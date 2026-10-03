@@ -50,4 +50,4 @@ reportUnknownLambdaType = false
 reportImplicitStringConcatenation = false
 
 [tool.uv.sources]
-remarkable = { git = "https://github.com/bartfrenk/remarkable", rev = "v0.2.0" }
+remarkable = { git = "https://github.com/bartfrenk/remarkable", rev = "v0.3.0" }
