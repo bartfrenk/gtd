@@ -118,7 +118,7 @@ class RemarkableInbox(Inbox):
 
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / "inbox.pdf"
-            _ = await self._client.download(self._path, dest)
+            _ = await self._client.download_pdf(self._path, dest)
             pdf_bytes = dest.read_bytes()
 
         items = [item for page in _render_pages(pdf_bytes) for item in self._ocr.recognize(page)]

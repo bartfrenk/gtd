@@ -25,7 +25,7 @@ class _FakeClient:
     async def list_documents(self) -> list[DocumentEntry]:
         return self._entries
 
-    async def download(self, path: str, dest: Path) -> Path:
+    async def download_pdf(self, path: str, dest: Path) -> Path:
         self.downloaded = True
         _ = dest.write_bytes(self._pdf_bytes)
         return dest
