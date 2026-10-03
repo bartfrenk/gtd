@@ -122,7 +122,12 @@ class RemarkableInbox(Inbox):
             pdf_bytes = dest.read_bytes()
 
         items = [item for page in _render_pages(pdf_bytes) for item in self._ocr.recognize(page)]
-        self._hash_cache.set(entry.hash)
+        if not items:
+            # Nothing for the caller to add or clear, so it's safe to mark
+            # this content as seen now rather than re-OCRing it every sync.
+            self._hash_cache.set(entry.hash)
+            return
+
         for item in items:
             if status is None or item.status in status:
                 yield item
@@ -136,18 +141,27 @@ class RemarkableInbox(Inbox):
 
     @override
     async def clear(self) -> None:
-        """Recreate the document from a blank page.
+        """Recreate the document from a blank page, then record its new hash.
 
         The sync protocol has no in-place edit, so this is "upload a blank
         page, trash the old document" (via `replace_pdf`) rather than wiping
         content -- see the Question 1 discussion in
         docs/features/remarkable-inbox.md.
+
+        run_sync only calls clear() after the items get_items() yielded have
+        been handed to the destination successfully, so persisting the hash
+        here -- not in get_items() -- means a failed add() or clear() leaves
+        the old hash in place and the same items get re-yielded next sync,
+        instead of being silently dropped.
         """
         name, folder = _split_tablet_path(self._path)
         with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
             _ = tmp.write(_blank_page_pdf())
             tmp.flush()
             _ = await self._client.replace_pdf(tmp.name, name=name, folder=folder)
+        entries = await self._client.list_documents()
+        entry = resolve_path(entries, self._path)
+        self._hash_cache.set(entry.hash)
 
     @override
     def __str__(self) -> str:

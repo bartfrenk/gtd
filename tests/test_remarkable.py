@@ -14,6 +14,12 @@ def _entry(hash_: str, visible_name: str = "Inbox", parent: str = "") -> Documen
     )
 
 
+def _folder(id_: str, visible_name: str, parent: str = "") -> DocumentEntry:
+    return DocumentEntry(
+        id=id_, hash="folder-hash", visible_name=visible_name, parent=parent, type="CollectionType"
+    )
+
+
 @final
 class _FakeClient:
     def __init__(self, entries: list[DocumentEntry], pdf_bytes: bytes = b"") -> None:
@@ -69,6 +75,35 @@ async def test_get_items_downloads_and_ocrs_when_hash_changed(tmp_path):
 
     assert client.downloaded is True
     assert [item.title for item in items] == ["Buy milk"]
+
+
+async def test_get_items_does_not_persist_hash_when_items_are_found(tmp_path):
+    """Regression test: run_sync only clear()s a source after add() to the
+    destination succeeds. If get_items() persisted the hash itself, a failed
+    add() (or a crash before clear() runs) would permanently lose those items
+    -- the next sync would see the hash as already "seen" and skip them.
+    Persisting only happens in clear(), so a retry re-discovers the same items.
+    """
+    hash_cache = HashCache(tmp_path / "hash")
+    hash_cache.set("old")
+    client = _FakeClient([_entry("new")], pdf_bytes=_blank_page_pdf())
+    ocr = _FakeOCR([[Item(title="Buy milk", status=Status.TODO)]])
+    inbox = RemarkableInbox("/Inbox", client, hash_cache, ocr)
+
+    _ = [item async for item in inbox.get_items()]
+
+    assert hash_cache.get() == "old"
+
+
+async def test_get_items_persists_hash_immediately_when_no_items_found(tmp_path):
+    hash_cache = HashCache(tmp_path / "hash")
+    hash_cache.set("old")
+    client = _FakeClient([_entry("new")], pdf_bytes=_blank_page_pdf())
+    inbox = RemarkableInbox("/Inbox", client, hash_cache, _FakeOCR([[]]))
+
+    items = [item async for item in inbox.get_items()]
+
+    assert items == []
     assert hash_cache.get() == "new"
 
 
@@ -96,7 +131,12 @@ async def test_get_items_merges_items_across_pages(tmp_path):
 
 async def test_clear_replaces_with_blank_page_split_from_path(tmp_path):
     hash_cache = HashCache(tmp_path / "hash")
-    client = _FakeClient([])
+    client = _FakeClient(
+        [
+            _folder("folder-id", "GTD"),
+            _entry("after-clear", visible_name="Inbox", parent="folder-id"),
+        ]
+    )
     inbox = RemarkableInbox("/GTD/Inbox", client, hash_cache, _FakeOCR([]))
 
     await inbox.clear()
@@ -109,7 +149,7 @@ async def test_clear_replaces_with_blank_page_split_from_path(tmp_path):
 
 async def test_clear_at_root_passes_no_folder(tmp_path):
     hash_cache = HashCache(tmp_path / "hash")
-    client = _FakeClient([])
+    client = _FakeClient([_entry("after-clear")])
     inbox = RemarkableInbox("/Inbox", client, hash_cache, _FakeOCR([]))
 
     await inbox.clear()
@@ -117,6 +157,17 @@ async def test_clear_at_root_passes_no_folder(tmp_path):
     [(_, name, folder)] = client.replace_calls
     assert name == "Inbox"
     assert folder is None
+
+
+async def test_clear_persists_the_post_clear_hash(tmp_path):
+    hash_cache = HashCache(tmp_path / "hash")
+    hash_cache.set("before-clear")
+    client = _FakeClient([_entry("after-clear")])
+    inbox = RemarkableInbox("/Inbox", client, hash_cache, _FakeOCR([]))
+
+    await inbox.clear()
+
+    assert hash_cache.get() == "after-clear"
 
 
 def test_split_tablet_path_root_level():
