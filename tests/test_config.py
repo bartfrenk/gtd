@@ -50,6 +50,22 @@ async def test_read_config_populates_refresh_token_from_cache(tmp_path):
     assert inbox_config.refresh_token == "cached-token"
 
 
+async def test_unknown_inbox_kind_is_skipped_with_warning(caplog):
+    config = await parse_config(
+        """
+        inbox:
+          - config:
+              kind: remarkable
+          - config:
+              kind: org
+              path: ~/inbox.org
+        """
+    )
+    assert len(config.inbox) == 1
+    assert config.inbox[0].config.kind == "org"
+    assert "remarkable" in caplog.text
+
+
 async def test_read_config_leaves_refresh_token_none_when_uncached(tmp_path):
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
